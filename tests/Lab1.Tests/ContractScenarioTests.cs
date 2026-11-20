@@ -1,82 +1,107 @@
-﻿using Xunit;
+using Itmo.ObjectOrientedProgramming.Lab1.Cargo;
+using Itmo.ObjectOrientedProgramming.Lab1.Contracts;
+using Itmo.ObjectOrientedProgramming.Lab1.Models;
+using Itmo.ObjectOrientedProgramming.Lab1.Results;
+using Itmo.ObjectOrientedProgramming.Lab1.Ships;
+using Xunit;
 
 namespace Itmo.ObjectOrientedProgramming.Lab1.Tests;
 
-// Тестовые сценарии из задания (раздел «Тестовые сценарии»).
-// Значения по умолчанию: флот – один Venture, стратегия «Общий трюм»;
-// пояс «Пояс A» – 4 а.е., Veldspar; налог 0;
-// прайс-лист – Tritanium 4, Pyerite 10, Mexallon 70, Isogen 150.
 public class ContractScenarioTests
 {
-    /*
-    private readonly PriceList _defaultPriceList;
+    private readonly Mineral _tritanium = new("Tritanium");
+    private readonly Mineral _pyerite = new("Pyerite");
+    private readonly Mineral _mexallon = new("Mexallon");
+    private readonly Mineral _isogen = new("Isogen");
+    private readonly ContractCalculator _calculator = new();
 
-    public ContractScenarioTests()
-    {
-        // например:
-        _priceList = new PriceList()
-            .AddMineral(new Tritanium(), 4.0m)
-            .AddMineral(new Pyerite(),  10.0m)
-            .AddMineral(new Mexallon(), 70.0m)
-            .AddMineral(new Isogen(),  150.0m);
-    }
-    */
-
-    [Fact(DisplayName = "Сценарий 1. Контракт на срок")]
+    [Fact]
     public void TimeContract_WithSingleVenture_IsCompleted()
     {
-        // Arrange: контракт на 6 ч
-        // var contract = new Contract(...);
+        TestData data = CreateDefaultData();
+        var contract = new TimeContract(data.Belt, data.Fleet, data.PriceList, 6m);
 
-        // Act
-        // var result = calculator.Calculate(contract, ...);
+        ContractResult calculationResult = _calculator.Calculate(contract, new Station(0m));
 
-        // Assert: выполнен; 1 рейс, время работы 6 ч, добыто 400 м³;
-        // Tritanium – 8000; выручка 32 000, аренда 6000, прибыль 26 000
-        // Assert.Equal(result.Status, ContractStatusEnum.Completed);
-        Assert.Fail("Сценарий не реализован");
+        CompletedContractResult result = Assert.IsType<CompletedContractResult>(calculationResult);
+        Assert.Equal(1, result.TripCount);
+        Assert.Equal(6m, result.ElapsedTime);
+        Assert.Equal(400m, result.MinedVolume);
+        Assert.Equal(8000m, result.Minerals[_tritanium]);
+        Assert.Equal(32000m, result.Revenue);
+        Assert.Equal(6000m, result.Rent);
+        Assert.Equal(26000m, result.Profit);
     }
 
-    [Fact(DisplayName = "Сценарий 2. Пустой флот")]
-    public void Fleet_WithoutShips_CannotBeCreated()
+    [Fact]
+    public void Fleet_WithoutShips_ThrowsArgumentException()
     {
-        // Arrange + Act: создание флота без кораблей
-
-        // Assert: исключение
-        Assert.Fail("Сценарий не реализован");
+        Assert.Throws<ArgumentException>(() => new Fleet([], new SharedCargoStrategy()));
     }
 
-    [Fact(DisplayName = "Сценарий 3. Контракт на объём")]
+    [Fact]
     public void VolumeContract_WithSingleVenture_IsCompleted()
     {
-        // Arrange: контракт на 1000 м³
+        TestData data = CreateDefaultData();
+        var contract = new VolumeContract(data.Belt, data.Fleet, data.PriceList, 1000m);
 
-        // Act
+        ContractResult calculationResult = _calculator.Calculate(contract, new Station(0m));
 
-        // Assert: выполнен; 3 рейса (400, 400, 200 м³), время работы 16 ч;
-        // Tritanium – 20 000; выручка 80 000, аренда 16 000, прибыль 64 000
-        Assert.Fail("Сценарий не реализован");
+        CompletedContractResult result = Assert.IsType<CompletedContractResult>(calculationResult);
+        Assert.Equal(3, result.TripCount);
+        Assert.Equal(16m, result.ElapsedTime);
+        Assert.Equal(1000m, result.MinedVolume);
+        Assert.Equal(20000m, result.Minerals[_tritanium]);
+        Assert.Equal(80000m, result.Revenue);
+        Assert.Equal(16000m, result.Rent);
+        Assert.Equal(64000m, result.Profit);
     }
 
-    [Fact(DisplayName = "Сценарий 4. Отклонение по сроку")]
+    [Fact]
     public void TimeContract_TooShort_IsRejected()
     {
-        // Arrange: контракт на 2 ч
+        TestData data = CreateDefaultData();
+        var contract = new TimeContract(data.Belt, data.Fleet, data.PriceList, 2m);
 
-        // Act
+        ContractResult calculationResult = _calculator.Calculate(contract, new Station(0m));
 
-        // Assert: отклонён – срока не хватает на один рейс
-        Assert.Fail("Сценарий не реализован");
+        RejectedContractResult result = Assert.IsType<RejectedContractResult>(calculationResult);
+        Assert.Equal(RejectionReason.NotEnoughTime, result.Reason);
     }
 
-    [Fact(DisplayName = "Сценарий 5. Отклонение по прайс-листу")]
+    [Fact]
     public void Contract_WithIncompletePriceList_IsRejected()
     {
-        // Arrange: пояс с Scordite, в прайс-листе нет цены Pyerite; контракт на 6 ч
+        TestData data = CreateDefaultData();
+        var scordite = new Ore(
+            "Scordite",
+            0.15m,
+            [new OreYield(_tritanium, 75m), new OreYield(_pyerite, 55m)]);
+        var belt = new AsteroidBelt("Пояс B", 4m, scordite);
+        var incompletePriceList = new PriceList([new KeyValuePair<Mineral, decimal>(_tritanium, 4m)]);
+        var contract = new TimeContract(belt, data.Fleet, incompletePriceList, 6m);
 
-        // Act
+        ContractResult calculationResult = _calculator.Calculate(contract, new Station(0m));
 
-        // Assert: отклонён – в прайс-листе нет цены минерала из выхода руды
-        Assert.Fail("Сценарий не реализован");
+        RejectedContractResult result = Assert.IsType<RejectedContractResult>(calculationResult);
+        Assert.Equal(RejectionReason.MissingMineralPrice, result.Reason);
     }
+
+    private TestData CreateDefaultData()
+    {
+        var veldspar = new Ore("Veldspar", 0.1m, [new OreYield(_tritanium, 200m)]);
+        var belt = new AsteroidBelt("Пояс A", 4m, veldspar);
+        var fleet = new Fleet([StandardShips.CreateVenture()], new SharedCargoStrategy());
+        var prices = new PriceList(
+        [
+            new KeyValuePair<Mineral, decimal>(_tritanium, 4m),
+            new KeyValuePair<Mineral, decimal>(_pyerite, 10m),
+            new KeyValuePair<Mineral, decimal>(_mexallon, 70m),
+            new KeyValuePair<Mineral, decimal>(_isogen, 150m),
+        ]);
+
+        return new TestData(belt, fleet, prices);
+    }
+
+    private sealed record TestData(AsteroidBelt Belt, Fleet Fleet, PriceList PriceList);
 }
